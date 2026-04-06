@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Map Region Annotator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; }
+  .toolbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #16213e; padding: 10px 20px;
+    display: flex; align-items: center; gap: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+  .toolbar label { font-size: 13px; color: #aaa; }
+  .toolbar button {
+    padding: 8px 18px; border: none; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-red { background: #e74c3c; color: white; }
+  .btn-red:hover { background: #c0392b; }
+  .btn-blue { background: #3498db; color: white; }
+  .btn-blue:hover { background: #2980b9; }
+  .btn-green { background: #2ecc71; color: white; }
+  .btn-green:hover { background: #27ae60; }
+  .btn-gray { background: #555; color: white; }
+  .btn-gray:hover { background: #666; }
+  input[type=range] { width: 100px; }
+  .canvas-wrap {
+    margin-top: 60px; display: flex; justify-content: center;
+    padding: 20px; overflow: auto;
+  }
+  .canvas-container {
+    position: relative; display: inline-block;
+    border: 2px solid #333; cursor: crosshair;
+  }
+  canvas { display: block; }
+  #overlay { position: absolute; top: 0; left: 0; }
+  .hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.7); padding: 8px 20px; border-radius: 20px;
+    font-size: 13px; color: #aaa;
+  }
+  .color-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent;
+    cursor: pointer; display: inline-block;
+  }
+  .color-btn.active { border-color: white; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn-blue" onclick="document.getElementById('fileInput').click()">Load Image</button>
+  <input type="file" id="fileInput" accept="image/*" style="display:none">
+  <span style="color:#555">|</span>
+  <label>Brush:</label>
+  <input type="range" id="brushSize" min="3" max="40" value="15">
+  <span id="brushLabel" style="font-size:12px;color:#888">15px</span>
+  <span style="color:#555">|</span>
+  <label>Color:</label>
+  <div class="color-btn active" style="background:#ff0000" data-color="rgba(255,0,0,0.5)" onclick="setColor(this)"></div>
+  <div class="color-btn" style="background:#00ff00" data-color="rgba(0,255,0,0.5)" onclick="setColor(this)"></div>
+  <div class="color-btn" style="background:#ffff00" data-color="rgba(255,255,0,0.5)" onclick="setColor(this)"></div>
+  <div class="color-btn" style="background:#ff00ff" data-color="rgba(255,0,255,0.5)" onclick="setColor(this)"></div>
+  <span style="color:#555">|</span>
+  <button class="btn-gray" onclick="clearOverlay()">Clear</button>
+  <button class="btn-gray" onclick="undo()">Undo</button>
+  <button class="btn-green" onclick="downloadResult()">Download Annotated</button>
+</div>
+
+<div class="canvas-wrap">
+  <div class="canvas-container" id="container">
+    <canvas id="base"></canvas>
+    <canvas id="overlay"></canvas>
+  </div>
+</div>
+
+<div class="hint">Paint on the map to mark areas for optimization. Download when done.</div>
+
+<script>
+const baseCanvas = document.getElementById('base');
+const overlay = document.getElementById('overlay');
+const baseCtx = baseCanvas.getContext('2d');
+const ctx = overlay.getContext('2d');
+const brushSlider = document.getElementById('brushSize');
+const brushLabel = document.getElementById('brushLabel');
+
+let drawing = false;
+let brushColor = 'rgba(255,0,0,0.5)';
+let history = [];
+let baseImage = null;
+
+brushSlider.oninput = () => { brushLabel.textContent = brushSlider.value + 'px'; };
+
+function setColor(el) {
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  brushColor = el.dataset.color;
+}
+
+function loadImage(src) {
+  const img = new Image();
+  img.onload = () => {
+    // Scale to fit screen width if too large
+    let w = img.width, h = img.height;
+    const maxW = window.innerWidth - 60;
+    if (w > maxW) { h = h * maxW / w; w = maxW; }
+    baseCanvas.width = overlay.width = w;
+    baseCanvas.height = overlay.height = h;
+    baseCtx.drawImage(img, 0, 0, w, h);
+    baseImage = img;
+    saveHistory();
+  };
+  img.src = src;
+}
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadImage(ev.target.result);
+  reader.readAsDataURL(file);
+});
+
+// Try loading default image from same directory
+loadImage('world_map_IOU_v7_greedy.png');
+
+function getPos(e) {
+  const r = overlay.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+overlay.addEventListener('mousedown', (e) => {
+  drawing = true;
+  const p = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineWidth = brushSlider.value;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = brushColor;
+});
+
+overlay.addEventListener('mousemove', (e) => {
+  if (!drawing) return;
+  const p = getPos(e);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+
+overlay.addEventListener('mouseup', () => { drawing = false; saveHistory(); });
+overlay.addEventListener('mouseleave', () => { drawing = false; });
+
+function saveHistory() {
+  history.push(ctx.getImageData(0, 0, overlay.width, overlay.height));
+  if (history.length > 30) history.shift();
+}
+
+function undo() {
+  if (history.length > 1) {
+    history.pop();
+    ctx.putImageData(history[history.length - 1], 0, 0);
+  } else {
+    clearOverlay();
+  }
+}
+
+function clearOverlay() {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  history = [];
+  saveHistory();
+}
+
+function downloadResult() {
+  const tmp = document.createElement('canvas');
+  tmp.width = overlay.width;
+  tmp.height = overlay.height;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(baseCanvas, 0, 0);
+  tctx.drawImage(overlay, 0, 0);
+  const link = document.createElement('a');
+  link.download = 'map_annotated.png';
+  link.href = tmp.toDataURL('image/png');
+  link.click();
+}
+</script>
+</body>
+</html>
