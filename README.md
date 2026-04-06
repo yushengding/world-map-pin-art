@@ -2,6 +2,8 @@
 
 A world map made of pins and colored thread on a 72x48 inch wooden board. This project extracts continent outlines from GeoJSON data, optimizes pin placement using IoU-based algorithms, and generates projector-ready images for marking pin positions on the board.
 
+Built entirely with [Claude Code](https://claude.ai/claude-code) (Claude Opus 4.6) through iterative human-AI collaboration - from algorithm design and implementation to optimization and testing.
+
 ![Final Result](results/final_1100dots.png)
 
 ## Pin Statistics
