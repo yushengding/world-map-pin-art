@@ -27,7 +27,7 @@ PANEL_W, PANEL_H = 72, 48
 MARGIN = 2.0
 DW, DH = PANEL_W - 2*MARGIN, PANEL_H - 2*MARGIN
 INCH_TO_CM = 2.54
-TARGET = 1200
+TARGET = 1100
 MIN_PERIM = 3.0
 MIN_PTS = 3
 
@@ -1238,7 +1238,7 @@ def draw_map(ax, rings, meta, title):
             if len(d)<2: continue
             cs = np.vstack([d,d[0:1]])
             ax.plot(cs[:,0],cs[:,1],color=cl,linewidth=0.8,alpha=0.7,zorder=2)
-            ax.scatter(d[:,0],d[:,1],s=6,c=cl,zorder=3,edgecolors='white',linewidths=0.2)
+            ax.scatter(d[:,0],d[:,1],s=24,c=cl,zorder=3,edgecolors='white',linewidths=0.4)
     ax.set_title(title,fontsize=10,fontweight='bold',pad=8)
     ax.set_xticks(np.arange(0,PANEL_W+1,10))
     ax.set_yticks(np.arange(0,PANEL_H+1,10))
@@ -1265,8 +1265,8 @@ handles = []
 for co in sorted(continent_dots.keys()):
     cl = CONTINENT_COLORS.get(co,'#888')
     n = sum(len(d) for d in continent_dots[co])
-    if n>0: handles.append(Line2D([0],[0],marker='o',color=cl,linewidth=1,markersize=6,
-                                   markerfacecolor=cl,markeredgecolor='white',markeredgewidth=0.3,
+    if n>0: handles.append(Line2D([0],[0],marker='o',color=cl,linewidth=1,markersize=12,
+                                   markerfacecolor=cl,markeredgecolor='white',markeredgewidth=0.5,
                                    label=f'{co} ({n})'))
 ax2.legend(handles=handles,loc='lower left',fontsize=8,framealpha=0.95)
 plt.tight_layout()
